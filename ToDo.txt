@@ -1,0 +1,4 @@
+ToDo:
+
+- TEST EVERYTHING
+- Once all peripherals are tested and working  -> organize into separate lib files
