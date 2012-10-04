@@ -28,8 +28,8 @@
 /*	Notes:
 *		Robot Motor controls:
 *			    LM0  LM1  |  RM0  RM1
-*			FWD: 1    1      1     1
-*			RVS: 0    0      0     0
+*			FWD: 0    1      1     1
+*			RVS: 1    0      0     0
 *			LFT: 0    0      1     1
 *			RGT: 1    1      0     0
 *			STP: 0    1      1     0
@@ -55,14 +55,14 @@
 	// Motors
 #define LM0(x) (x) ? SETBIT(PORTC, 0) : CLEARBIT(PORTC, 0);		
 #define LM1(x) (x) ? SETBIT(PORTC, 1) : CLEARBIT(PORTC, 1);		 
-#define RM0(x) (x) ? SETBIT(PORTC, 2) : CLEARBIT(PORTC, 2);		
-#define RM1(x) (x) ? SETBIT(PORTC, 3) : CLEARBIT(PORTC, 3);		
+#define RM0(x) (x) ? SETBIT(PORTD, 7) : CLEARBIT(PORTD, 7);
+#define RM1(x) (x) ? SETBIT(PORTD, 6) : CLEARBIT(PORTD, 6);
 																
 void init(void){
 	/* Init Pins */
 	DDRA = 0x00;				// PORTA 0-3 -input (IR Inputs)
 	DDRC = 0x0F;				// PORTC 0-3 -output (Motor Outputs)
-	DDRD = 0x30;				// PORTD 0-3 -input (Encoder Feedback) 4[Right] 5[Left] -output (PWM)
+	DDRD = 0xF0;				// PORTD 0-3 -input (Encoder Feedback) 4[Right] 5[Left] -output (PWM)
 	
 	/* Init INT */
 	// Add external Interupts
@@ -80,12 +80,28 @@ void init(void){
 int main(void)
 {
     init();
+    
+    LM0(0);
+    LM1(0);
+    RM0(0);
+    RM1(0);
+    
+    while(!PBS)
+    {
+        _delay_ms(1);
+    }
+    
+    
 	while(1){
-		//if(readADC(RF_IR) > 1000){ LM0(1); }else{ LM0(0);}		// Shows that at 4.52 volts the led turns on(LM0())
-		//setMotorSpeed('L', 128));									// PWM at 8-bit; sets to 0.5
-		if(PBS){ LM0(1); }else{ LM0(0);}
-		//LM0(1);
-	}	
+        motorFWD();
+        _delay_ms(1000);
+        motorSTP();
+        _delay_ms(1000);
+        motorRVS();
+        _delay_ms(1000);
+        motorSTP();
+        _delay_ms(1000);
+	}
 }
 
 /* Motor Control Functions */
@@ -102,23 +118,23 @@ void setMotorSpeed(char c, int p){		// Set speed with a percentage
 
 void motorFWD(){				
 	LM0(1);
-	LM1(1);
-	RM0(1);
+	LM1(0);
+	RM0(0);
 	RM1(1);	
 }
 
 void motorRVS(){				
 	LM0(0);
-	LM1(0);
-	RM0(0);
+	LM1(1);
+	RM0(1);
 	RM1(0);	
 }
 
 void motorSTP(){
 	LM0(0);
-	LM1(1);
+	LM1(0);
 	RM0(0);
-	RM1(1);
+	RM1(0);
 }
 
 /* ADC Functions */
