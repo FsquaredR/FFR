@@ -4,7 +4,7 @@
 /  |@|@|@|@|   _____   |@|@|@|@|        Started:      2/26/2012
 /  |@|@|@|@| /\_T_T_/\ |@|@|@|@|        Last Updated: 9/24/2012
 /  |@|@|@|@||/\ T T /\||@|@|@|@|        
-/   ~/T~~T~||~\/~T~\/~||~T~~T\~         By: Andrew & Mike
+/   ~/T~~T~||~\/~T~\/~||~T~~T\~         By: Us
 /    \|__|_| \(-(O)-)/ |_|__|/
 /    _| _|    \\8_8//    |_ |_
 /  |(@)]   /~~[_____]~~\   [(@)|
@@ -33,8 +33,6 @@
 *			LFT: 0    0      1     1
 *			RGT: 1    1      0     0
 *			STP: 0    1      1     0
-*
-*
 */
 
 /* Macros For Bitsetting  */
@@ -47,46 +45,43 @@
 	// Sensors
 #define ULTRA(x) (x) ? SETBIT(PORTC, 7) : CLEARBIT(PORTC, 7);
 #define RF_IR 0
+#define RR_IR 1
+#define LF_IR 2
+#define LR_IR 3
 	// Fire I/O
 #define FAN(x) (x) ? SETBIT(PORTC, 4) : CLEARBIT(PORTC, 4);
+#define PBS CHECKBIT(PORTC, 4);
 	// Motors
-#define LM0(x) (x) ? SETBIT(PORTA, 0) : CLEARBIT(PORTA, 0);		
-#define LM1(x) (x) ? SETBIT(PORTA, 1) : CLEARBIT(PORTA, 1);		 
-#define RM0(x) (x) ? SETBIT(PORTA, 2) : CLEARBIT(PORTA, 2);		
-#define RM1(x) (x) ? SETBIT(PORTA, 3) : CLEARBIT(PORTA, 3);		
+#define LM0(x) (x) ? SETBIT(PORTC, 0) : CLEARBIT(PORTC, 0);		
+#define LM1(x) (x) ? SETBIT(PORTC, 1) : CLEARBIT(PORTC, 1);		 
+#define RM0(x) (x) ? SETBIT(PORTC, 2) : CLEARBIT(PORTC, 2);		
+#define RM1(x) (x) ? SETBIT(PORTC, 3) : CLEARBIT(PORTC, 3);		
 																
 void init(void){
 	/* Init Pins */
-	DDRA = 0x0F;				// PORTA 0-3 -output (Motor Controls)
-	DDRC = 0x00;				// PORTC 0-3 -input (Encoder Feedback)
+	DDRA = 0x00;				// PORTA 0-3 -input (IR Inputs)
+	DDRC = 0x0F;				// PORTC 0-3 -output (Motor Outputs)
+	DDRD = 0x30;				// PORTD 0-3 -input (Encoder Feedback) 4[Right] 5[Left] -output (PWM)
 	
 	/* Init INT */
-	PCMSK1 = 0x80;				// Setting interrupts to pins 22-25
-	PCMSK2 = 0x03;
-	EICRA = 0x05;				// Setting interrupts
+	// Add external Interupts
 	
 	/* Init PWM */
-	DDRD = 0x30;			   	// PORTD 4[Right] 5[Left] -output (PWM)	
 	TCCR1A = 0x81;              // 8-bit, Non-Inverted PWM
     TCCR1B = 1;                 // Starts PWM
 	
-	/* Init ADC */
-    ADMUX |= (1 << REFS1);      // AVCC with external capacitor at AREF pin
+	/* Init ADC */	
     ADCSRA = 0xEB;				// changed to allow interrupt
-    while(!(ADCSRA & 0x10)) asm volatile ("nop"::); // if still converting, wait
+    ADMUX |= (1 << REFS0);		// AVCC with external capacitor at AREF pin
     ADCSRA |= 0x10;				// clear flag
 }
-	
-int adcTest = 0;
 
 int main(void)
 {
     init();
-	setMotorSpeed(100);
-	motorSTP();
 	while(1){
-		adcTest = readADC(RF_IR);
-		setMotorSpeed('L', ((adcTest * 100) / 1024));
+		if(readADC(RF_IR) > 1000){ LM0(1); }else{ LM0(0);}
+		//setMotorSpeed('L', ((adcTest * 100) / 1024));
 	}	
 }
 
@@ -126,10 +121,12 @@ void motorSTP(){
 /* ADC Functions */
 int readADC(int channel){		// PORT A
 
-    ADMUX |= channel;			// read from specified channel
-    ADMUX |= (1 << REFS1);		// DIV: 1.1v
+	ADMUX |= channel;			// read from specified channel
+    ADMUX |= (1 << REFS0);		// AVCC with external capacitor at AREF pin
+	ADCSRA = 0xEB;				// changed to allow interrupt
     while(!(ADCSRA & 0x10)) asm volatile ("nop"::); //if still converting, wait
     ADCSRA |= 0x10;				// clear flag
+		
     return ADC;
 }
 
