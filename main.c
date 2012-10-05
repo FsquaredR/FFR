@@ -43,7 +43,8 @@
 
 /* Pin Declairations */
 	// Sensors
-#define ULTRA(x) (x) ? SETBIT(PORTC, 7) : CLEARBIT(PORTC, 7);
+#define ULTRAW(x) (x) ? SETBIT(PORTC, 7) : CLEARBIT(PORTC, 7);
+#define ULTRAR CHECKBIT(PINC, PC7)
 #define RF_IR 0
 #define RR_IR 1
 #define LF_IR 2
@@ -61,7 +62,7 @@
 void init(void){
 	/* Init Pins */
 	DDRA = 0x00;				// PORTA 0-3 -input (IR Inputs)
-	DDRC = 0x0F;				// PORTC 0-3 -output (Motor Outputs)
+	DDRC = 0x8F;				// PORTC 0-3 -output (Motor Outputs) 7 (PING) -output
 	DDRD = 0xF0;				// PORTD 0-3 -input (Encoder Feedback) 4[Right] 5[Left] -output (PWM)
 	
 	/* Init INT */
@@ -150,10 +151,11 @@ int readADC(int channel){		// PORT A
 }
 
 /* Encoder Functions */
-/*
+#define SAMPLERATE 40
+
 int ping_cm(){
-  long avg = 0;
-  long sum = 0;
+  int avg = 0;
+  int sum = 0;
   
   for(int i = 0; i < (SAMPLERATE/2); i++){
     sum += pingRead();
@@ -161,33 +163,32 @@ int ping_cm(){
   }
   avg = (sum/(SAMPLERATE/2));
   
-  return (avg /29 /2);
+  return (avg /29 /2);		// Needed to be recalabrated... maybe... probably not though
 }
 
 int pingRead(){
-  long onTime = 0;
+  int onTime = 0;
   
-  DDRC = 0x8F;                // Pulse The Ping Sensor 
-  ULTRA(0);
+  FLIPBIT(PORTC,8);             
+  ULTRAW(0);				    // Pulse The Ping Sensor 
   _delay_us(2);
-  ULTRA(1);
+  ULTRAW(1);
   _delay_us(5);
-  ULTRA(0);
+  ULTRAW(0);
+  FLIPBIT(PORTC,8);
   
-  DDRC = 0x0F;               // Collect Data 
-  onTime = pulseInH(0x80);
+  onTime = pulseInHighUltra();	// Collect Data 
   
   return onTime;  
 }
 
-long pulseInH(int p){
-	long count = 0;
+int pulseInHighUltra(){
+	int count = 0;
 	
-	while(CHECKBIT(PORTC, 7)){ //Pulse is high
+	while(ULTRAR){ 					//Pulse is high
 		count++;
 		_delay_us(1);
 	}
 	
 	 return count;
 }
-*/
