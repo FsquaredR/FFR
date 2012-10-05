@@ -36,6 +36,10 @@
 *			STP: 0    1      1     0
 */
 
+#define FOSC 1000000
+#define BAUD 9600
+#define MYUBRR FOSC/16/BAUD-1
+
 /* Macros For Bitsetting  */
 #define SETBIT(ADDRESS,BIT) (ADDRESS |= (1<<BIT)) 
 #define CLEARBIT(ADDRESS,BIT) (ADDRESS &= ~(1<<BIT)) 
@@ -79,9 +83,51 @@ void init(void){
     ADCSRA |= 0x10;				// clear flag
 }
 
+void USART_TransmitString(const char* str)
+{
+	for (;*str;str++)
+	{
+		USART_Transmit(*str);
+	}
+	
+}
+
+unsigned char USART_Receive(void)
+{
+	while(!(UCSR0A & (1<<RXC0)));
+	return UDR0;
+}
+
+void USART_Transmit(unsigned char data)
+{
+    
+	//WAIT FOR EMPTY BUFFER
+	while (!(UCSR0A & (1<<UDRE0)));
+	
+	//Put data on buffer
+	UDR0 = data;
+    
+}
+
+void USART_Init(unsigned int ubrr)
+{
+	//SET BAUD RATE
+	UBRR0H = (unsigned char) (ubrr>>8);
+	UBRR0L = (unsigned char) ubrr;
+	
+	//ENABLE REC - TRA
+	UCSR0B = (1<<RXEN0) | (1<<TXEN0);
+	
+	//SET Frame Format
+	UCSR0C = (3<<1);
+	
+}
+
 int main(void)
 {
     init();
+    
+    USART_Init(MYUBRR);
     
     LM0(0);
     LM1(0);
