@@ -141,6 +141,7 @@ int main(void)
     
     
 	while(1){
+        USART_TransmitString((char*)"SERIAL TEST\n");
         motorFWD();
         _delay_ms(1000);
         motorSTP();
