@@ -2,7 +2,7 @@
 /   _______             _______
 /  |@|@|@|@|           |@|@|@|@|        RobotCode
 /  |@|@|@|@|   _____   |@|@|@|@|        Started:      2/26/2012
-/  |@|@|@|@| /\_T_T_/\ |@|@|@|@|        Last Updated: 9/24/2012
+/  |@|@|@|@| /\_T_T_/\ |@|@|@|@|        Last Updated: 
 /  |@|@|@|@||/\ T T /\||@|@|@|@|        
 /   ~/T~~T~||~\/~T~\/~||~T~~T\~         By: Us
 /    \|__|_| \(-(O)-)/ |_|__|/
@@ -19,26 +19,9 @@
 / CONVERT: avr-objcopy -O ihex main.elf main.hex
 / PROGRAM: avrdude -P usb -c avrisp2 -p atmega644 -U flash:w:main.hex
 /----------------------------------------------------------------*/
-
-/*
- * FFR_1-31-12.c
- *
- * Created: 2/12/2012 2:09:57 PM
- *  Author: Andrew
- */ 
-
 #include <avr/io.h>
 #include <util/delay.h>
 #include <string.h>
-/*	Notes:
-*		Robot Motor controls:
-*			    LM0  LM1  |  RM0  RM1
-*			FWD: 0    1      1     1
-*			RVS: 1    0      0     0
-*			LFT: 0    0      1     1
-*			RGT: 1    1      0     0
-*			STP: 0    1      1     0
-*/
 
 #define FOSC 8000000
 #define BAUD 9600
@@ -67,15 +50,21 @@
 #define LM1(x) (x) ? SETBIT(PORTC, 1) : CLEARBIT(PORTC, 1);		 
 #define RM0(x) (x) ? SETBIT(PORTD, 7) : CLEARBIT(PORTD, 7);
 #define RM1(x) (x) ? SETBIT(PORTD, 6) : CLEARBIT(PORTD, 6);
+	// Encoders
+#define RENC0 CHECKBIT(PIND, PC3) // gets interupt INT1
+#define RENC1 CHECKBIT(PIND, PC7)
+#define LENC0 CHECKBIT(PIND, PC2) // gets interupt INT0
+#define LENC1 CHECKBIT(PIND, PC6)
 																
 void init(void){
 	/* Init Pins */
 	DDRA = 0x00;				// PORTA 0-3 -input (IR Inputs)
 	DDRC = 0x8F;				// PORTC 0-3 -output (Motor Outputs) 7 (PING) -output
-	DDRD = 0xF0;				// PORTD 0-3 -input (Encoder Feedback) 4[Right] 5[Left] -output (PWM)
+	DDRD = 0x33;					  // PORTD 0,1 -output(serial) 2,3,6,7 -input (Encoder) 4[R] 5[L] -output (PWM)
 	
 	/* Init INT */
-	// Add external Interupts
+	EICRA |= ISC00 || ISC01;		  // Sets INT0 @Rising Edge
+	EICRA |= ISC11 || ISC10;		  // Sets INT1 @Rising Edge
 	
 	/* Init PWM */
 	TCCR1A = 0x81;              // 8-bit, Non-Inverted PWM
@@ -249,4 +238,33 @@ int pulseInHighUltra(){
 	}
 	
 	 return count;
+}
+
+/* Encoders */
+short dirL = 0;
+long countL0 = 0;
+short dirR = 0;
+long countR0 = 0;
+
+ISR(INT0_vect){
+
+  if(!LENC1){          //Checks other right encoder
+    dirL = 1;
+    countL0++;
+  }else{
+    dirL = -1;
+    countL0++;
+  }
+}
+
+ISR(INT1_vect)
+{
+
+  if(!RENC1){          //Checks other right encoder
+    dirR = 1;
+    countR0++;
+  }else{
+    dirR = -1;
+    countR0++;
+  }
 }
