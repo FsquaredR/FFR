@@ -14,6 +14,10 @@
 /        |  |         |  |
 /       _<\/>_       _<\/>_
 /      /_====_\     /_====_\
+/
+/ COMPILE: avr-gcc main.c -o main.elf -Os -DF_CPU=8000000 -mmcu=atmega644 -std=gnu99
+/ CONVERT: avr-objcopy -O ihex main.elf main.hex
+/ PROGRAM: avrdude -P usb -c avrisp2 -p atmega644 -U flash:w:main.hex
 /----------------------------------------------------------------*/
 
 /*
@@ -25,6 +29,7 @@
 
 #include <avr/io.h>
 #include <util/delay.h>
+#include <string.h>
 /*	Notes:
 *		Robot Motor controls:
 *			    LM0  LM1  |  RM0  RM1
@@ -35,7 +40,7 @@
 *			STP: 0    1      1     0
 */
 
-#define FOSC 1000000
+#define FOSC 8000000
 #define BAUD 9600
 #define MYUBRR FOSC/16/BAUD-1
 
@@ -138,17 +143,23 @@ int main(void)
         _delay_ms(1);
     }
     
-    
+    uint16_t adc_data;
+    unsigned char i;
+    char buffer[10];
+    uint16_t average = 0;
 	while(1){
-        USART_TransmitString((char*)"SERIAL TEST\n");
-        motorFWD();
-        _delay_ms(1000);
-        motorSTP();
-        _delay_ms(1000);
-        motorRVS();
-        _delay_ms(1000);
-        motorSTP();
-        _delay_ms(1000);
+        
+        average = 0;
+        for(i=0; i<40; i++)
+        {
+            adc_data = readADC(RF_IR);
+            average += adc_data;
+        }
+        average = average/40;
+        
+        itoa(average,buffer,10);
+        USART_TransmitString(buffer);
+        USART_Transmit('\n');
 	}
 }
 
