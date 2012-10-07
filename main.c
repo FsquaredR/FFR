@@ -19,9 +19,18 @@
 / CONVERT: avr-objcopy -O ihex main.elf main.hex
 / PROGRAM: avrdude -P usb -c avrisp2 -p atmega644 -U flash:w:main.hex
 /----------------------------------------------------------------*/
+
+/* IR Equations
+ LF: cm=33097.0 * (x)^(-1.322)
+ RF: cm=19799.0 * (x)^(-1.243)
+ LR: cm=03440.3 * (x)^(-1.078)
+ RR: cm=03790.6 * (x)^(-1.088)
+ */
+
 #include <avr/io.h>
 #include <util/delay.h>
 #include <string.h>
+#include <math.h>
 
 #define FOSC 8000000
 #define BAUD 9600
@@ -55,6 +64,16 @@
 #define RENC1 CHECKBIT(PIND, PC7)
 #define LENC0 CHECKBIT(PIND, PC2) // gets interupt INT0
 #define LENC1 CHECKBIT(PIND, PC6)
+
+/* Encoders */
+short dirL = 0;
+long countLF = 0;
+long countLR = 0;
+short dirR = 0;
+long countRF = 0;
+long countRR = 0;
+
+double readIR(int x);
 																
 void init(void){
 	/* Init Pins */
@@ -63,8 +82,8 @@ void init(void){
 	DDRD = 0x33;					  // PORTD 0,1 -output(serial) 2,3,6,7 -input (Encoder) 4[R] 5[L] -output (PWM)
 	
 	/* Init INT */
-	EICRA |= ISC00 || ISC01;		  // Sets INT0 @Rising Edge
-	EICRA |= ISC11 || ISC10;		  // Sets INT1 @Rising Edge
+	//EICRA |= ISC00 || ISC01;		  // Sets INT0 @Rising Edge
+	//EICRA |= ISC11 || ISC10;		  // Sets INT1 @Rising Edge
 	
 	/* Init PWM */
 	TCCR1A = 0x81;              // 8-bit, Non-Inverted PWM
@@ -127,30 +146,31 @@ int main(void)
     RM0(0);
     RM1(0);
     
+    USART_TransmitString((char*)"Starting MIRCO\nPush Button!!\n");
     while(!PBS)
     {
         _delay_ms(1);
     }
+    USART_TransmitString((char*)"Button Pushed...\n");
     
-    uint16_t adc_data;
-    unsigned char i;
-    char buffer[10];
-    uint16_t average = 0;
 	while(1){
-        
-        average = 0;
-        for(i=0; i<40; i++)
+        motorFWD();
+        _delay_ms(500);
+        motorSTP();
+        _delay_ms(2000);
+        motorRVS();
+        _delay_ms(500);
+        motorSTP();
+        while(!PBS)
         {
-            adc_data = readADC(RF_IR);
-            average += adc_data;
+            _delay_ms(1);
         }
-        average = average/40;
-        
-        itoa(average,buffer,10);
-        USART_TransmitString(buffer);
-        USART_Transmit('\n');
-	}
+    }
 }
+
+
+
+
 
 /* Motor Control Functions */
 void setMotorSpeed(char c, int p){		// Set speed with a percentage
@@ -183,6 +203,40 @@ void motorSTP(){
 	LM1(0);
 	RM0(0);
 	RM1(0);
+}
+
+/* IR Equations
+ LF: cm=33097.0 * (x)^(-1.322)
+ RF: cm=19799.0 * (x)^(-1.243)
+ LR: cm=03440.3 * (x)^(-1.078)
+ RR: cm=03790.6 * (x)^(-1.088)
+ */
+
+double readIR(int x){
+    double adc_data = 0;
+    for(unsigned char i=0; i<40; i++)
+    {
+        adc_data += (double)readADC(x);
+    }
+    adc_data = adc_data/40;
+    
+    switch (x) {
+        case LF_IR:
+            return (double)(33097.0 * pow( adc_data, (double)-1.322));
+            break;
+        case RF_IR:
+            return (double)(19799.0 * pow( adc_data, (double)-1.243));
+            break;
+        case LR_IR:
+            return (double)(03440.3 * pow( adc_data, (double)-1.078));
+            break;
+        case RR_IR:
+            return (double)(03790.6 * pow( adc_data, (double)-1.088));
+            break;
+        default:
+            break;
+    }
+    return -1; // RETURN WITH ERROR
 }
 
 /* ADC Functions */
@@ -240,31 +294,27 @@ int pulseInHighUltra(){
 	 return count;
 }
 
-/* Encoders */
-short dirL = 0;
-long countL0 = 0;
-short dirR = 0;
-long countR0 = 0;
 
-ISR(INT0_vect){
+/*
+ISR(INT0_vect, INT1_vect){
 
-  if(!LENC1){          //Checks other right encoder
-    dirL = 1;
-    countL0++;
-  }else{
-    dirL = -1;
-    countL0++;
-  }
-}
-
-ISR(INT1_vect)
-{
-
-  if(!RENC1){          //Checks other right encoder
-    dirR = 1;
-    countR0++;
-  }else{
-    dirR = -1;
-    countR0++;
-  }
-}
+    if(LENC0){
+        if(!LENC1){          //Checks other right encoder
+            dirL = 1;
+            countLF++;
+        }else{
+            dirL = -1;
+            countLR++;
+        }
+    }
+    
+    if(RENC0){
+        if(!RENC1){          //Checks other right encoder
+            dirR = 1;
+            countRF++;
+        }else{
+            dirR = -1;
+            countRR++;
+        }
+    }
+}*/
