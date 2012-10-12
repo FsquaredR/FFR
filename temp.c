@@ -95,10 +95,10 @@ ISR(INT0_vect){
 
   if(!LENC1){          //Checks other right encoder
     dirL = 1;
-    countL0++;
+    countLF++;
   }else{
     dirL = -1;
-    countL1++;
+    countLR++;
   }
 }
 

@@ -17,7 +17,7 @@
 /
 / COMPILE: avr-gcc main.c -o main.elf -Os -DF_CPU=8000000 -mmcu=atmega644 -std=gnu99
 / CONVERT: avr-objcopy -O ihex main.elf main.hex
-/ PROGRAM: avrdude -P usb -c avrisp2 -p atmega644 -U flash:w:main.hex
+/ PROGRAM: avrdude -P usb -c avrisp2 -p atmega644P -U flash:w:main.hex
 /----------------------------------------------------------------*/
 
 /* IR Equations
@@ -38,8 +38,8 @@
 #define MYUBRR FOSC/16/BAUD-1
 
 /* Macros For Bitsetting  */
-#define SETBIT(ADDRESS,BIT) (ADDRESS |= (1<<BIT)) 
-#define CLEARBIT(ADDRESS,BIT) (ADDRESS &= ~(1<<BIT)) 
+#define SETBIT(ADDRESS,BIT) (ADDRESS |= (1<<BIT))
+#define CLEARBIT(ADDRESS,BIT) (ADDRESS &= ~(1<<BIT))
 #define FLIPBIT(ADDRESS,BIT) (ADDRESS ^= (1<<BIT)) 
 #define CHECKBIT(ADDRESS,BIT) (ADDRESS & (1<<BIT))
 
@@ -80,7 +80,8 @@ void init(void){
 	/* Init Pins */
 	DDRA = 0x00;				// PORTA 0-3 -input (IR Inputs)
 	DDRC = 0xAF;				// PORTC 0-3 -output (Motor Outputs) 7 (PING) -output
-	DDRD = 0x33;					  // PORTD 0,1 -output(serial) 2,3,6,7 -input (Encoder) 4[R] 5[L] -output (PWM)
+	DDRD = 0x33;					  // PORTD 0,1 -output(serial) 2,3,6,7 -input (Encoder) 4[R]5[L]-output (PWM)
+    DDRB = 0xFF;
 	
 	/* Init INT */
 	//EICRA |= ISC00 || ISC01;		  // Sets INT0 @Rising Edge
@@ -91,7 +92,7 @@ void init(void){
 	
 	/* Init PWM */
 	TCCR1A = 0x81;              // 8-bit, Non-Inverted PWM
-    TCCR1B = 1;                 // Starts PWM
+    //TCCR1B = 1;                 // Starts PWM
 	
 	/* Init ADC */	
     ADCSRA = 0xEB;				// changed to allow interrupt
@@ -149,7 +150,7 @@ int main(void)
     LM1(0);
     RM0(0);
     RM1(0);
-    //sei();
+    sei();
     USART_TransmitString((char*)"Starting MIRCO\nPush Button!!\n");
     while(!PBS)
     {
@@ -164,7 +165,7 @@ int main(void)
         motorFWD();
         _delay_ms(500);
         motorSTP();
-        LED(1);
+        PORTB = 0xFF;
         _delay_ms(2000);
         motorRVS();
         _delay_ms(500);
@@ -302,29 +303,39 @@ int pulseInHighUltra(){
 	 return count;
 }
 
-
+/*
 ISR(INT0_vect) {
+    PORTB = 0xFF;
+    
     //TODO: Read interrupt
     if(LENC1){
-        LED(1);
+        PORTB = 0xFF;
+        //LED(1);
     }else{
-        LED(0);
+        PORTB = 0x00;
+        
+        //LED(0);
     }
 }
 
-/*
-ISR(INT0_vect, INT1_vect){
-
+*/
+ISR(INT0_vect){
+    
     if(LENC0){
         if(!LENC1){          //Checks other right encoder
             dirL = 1;
             countLF++;
+            PORTB = 0xFF;
         }else{
             dirL = -1;
             countLR++;
+            PORTB = 0x00;
         }
     }
     
+}
+
+ISR(INT1_vect){
     if(RENC0){
         if(!RENC1){          //Checks other right encoder
             dirR = 1;
@@ -334,4 +345,37 @@ ISR(INT0_vect, INT1_vect){
             countRR++;
         }
     }
-}*/
+}
+
+void go(int d, short dirR, short dirL){			// Assuming overall encoders get cleared ( d in increments )
+	unsigned int dismvR = 0;     // incs.
+	unsigned int dismvL = 0;
+    
+	if(dirR = 1){
+		unsigned int ENCR_p = countRF;		// countR0 increments on forward movment
+	}else if(dirR = -1){
+		unsigned int ENCR_p = countRR;		// countR1 increments on reverse movment
+	}
+	
+	if(dirL = 1){
+		unsigned int ENCL_p = countLF;
+	}else if(dirL = -1){
+		unsigned int ENCL_p = countLR;
+	}
+	
+	while(dismvR < dirR && dismvL < dirL){
+		if(dismvR < dirR){
+			if(dirR = 1) motorR(F); else if(dirR = -1) motorR(R);
+		}else{
+			motorR(S);
+		}
+		if(dismvL < dirL){
+			if(dirL = 1) motorL(F); else if(dirL = -1) motorL(R);
+		}else{
+			motorL(S);
+		}
+		
+		dismvR = countRF - ENCR_p;
+		dismvL = countLF - ENCL_p;
+	}
+}
