@@ -259,7 +259,7 @@ int readADC(int channel){		// PORT A
     return ADC;
 }
 
-/* Encoder Functions */
+/* PIMG Functions */
 #define SAMPLERATE 40
 
 int ping_cm(){
