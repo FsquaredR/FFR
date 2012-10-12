@@ -31,6 +31,7 @@
 #include <util/delay.h>
 #include <string.h>
 #include <math.h>
+#include <avr/interrupt.h>
 
 #define FOSC 8000000
 #define BAUD 9600
@@ -78,12 +79,15 @@ double readIR(int x);
 void init(void){
 	/* Init Pins */
 	DDRA = 0x00;				// PORTA 0-3 -input (IR Inputs)
-	DDRC = 0x8F;				// PORTC 0-3 -output (Motor Outputs) 7 (PING) -output
+	DDRC = 0xAF;				// PORTC 0-3 -output (Motor Outputs) 7 (PING) -output
 	DDRD = 0x33;					  // PORTD 0,1 -output(serial) 2,3,6,7 -input (Encoder) 4[R] 5[L] -output (PWM)
 	
 	/* Init INT */
 	//EICRA |= ISC00 || ISC01;		  // Sets INT0 @Rising Edge
 	//EICRA |= ISC11 || ISC10;		  // Sets INT1 @Rising Edge
+    EIMSK  |= (1 << INT0);
+    EICRA |= (1 << ISC00);
+    EICRA |= (0 << ISC01);
 	
 	/* Init PWM */
 	TCCR1A = 0x81;              // 8-bit, Non-Inverted PWM
@@ -145,7 +149,7 @@ int main(void)
     LM1(0);
     RM0(0);
     RM1(0);
-    
+    //sei();
     USART_TransmitString((char*)"Starting MIRCO\nPush Button!!\n");
     while(!PBS)
     {
@@ -154,9 +158,13 @@ int main(void)
     USART_TransmitString((char*)"Button Pushed...\n");
     
 	while(1){
+
+        
+        // AYERS MOTOR DEMO
         motorFWD();
         _delay_ms(500);
         motorSTP();
+        LED(1);
         _delay_ms(2000);
         motorRVS();
         _delay_ms(500);
@@ -294,6 +302,15 @@ int pulseInHighUltra(){
 	 return count;
 }
 
+
+ISR(INT0_vect) {
+    //TODO: Read interrupt
+    if(LENC1){
+        LED(1);
+    }else{
+        LED(0);
+    }
+}
 
 /*
 ISR(INT0_vect, INT1_vect){
