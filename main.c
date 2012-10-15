@@ -20,51 +20,17 @@
 / PROGRAM: avrdude -P usb -c avrisp2 -p atmega644P -U flash:w:main.hex
 /----------------------------------------------------------------*/
 
-/* IR Equations
- LF: cm=33097.0 * (x)^(-1.322)
- RF: cm=19799.0 * (x)^(-1.243)
- LR: cm=03440.3 * (x)^(-1.078)
- RR: cm=03790.6 * (x)^(-1.088)
- */
-
 #include <avr/io.h>
 #include <util/delay.h>
 #include <string.h>
 #include <math.h>
 #include <avr/interrupt.h>
+#include "RobotIO.h"
 
+#define F_CPU 8000000UL
 #define FOSC 8000000
 #define BAUD 9600
 #define MYUBRR FOSC/16/BAUD-1
-
-/* Macros For Bitsetting  */
-#define SETBIT(ADDRESS,BIT) (ADDRESS |= (1<<BIT))
-#define CLEARBIT(ADDRESS,BIT) (ADDRESS &= ~(1<<BIT))
-#define FLIPBIT(ADDRESS,BIT) (ADDRESS ^= (1<<BIT)) 
-#define CHECKBIT(ADDRESS,BIT) (ADDRESS & (1<<BIT))
-
-/* Pin Declairations */
-	// Sensors
-#define ULTRAW(x) (x) ? SETBIT(PORTC, 7) : CLEARBIT(PORTC, 7);
-#define ULTRAR CHECKBIT(PINC, PC7)
-#define RF_IR 0
-#define RR_IR 1
-#define LF_IR 2
-#define LR_IR 3
-	// Fire I/O
-#define FAN(x) (x) ? SETBIT(PORTC, 4) : CLEARBIT(PORTC, 4);
-#define LED(x) (x) ? SETBIT(PORTC, 5) : CLEARBIT(PORTC, 5);
-#define PBS CHECKBIT(PINC, PC6)
-	// Motors
-#define LM0(x) (x) ? SETBIT(PORTC, 0) : CLEARBIT(PORTC, 0);		
-#define LM1(x) (x) ? SETBIT(PORTC, 1) : CLEARBIT(PORTC, 1);		 
-#define RM0(x) (x) ? SETBIT(PORTD, 7) : CLEARBIT(PORTD, 7);
-#define RM1(x) (x) ? SETBIT(PORTD, 6) : CLEARBIT(PORTD, 6);
-	// Encoders
-#define RENC0 CHECKBIT(PIND, PC3) // gets interupt INT1
-#define RENC1 CHECKBIT(PIND, PC7)
-#define LENC0 CHECKBIT(PIND, PC2) // gets interupt INT0
-#define LENC1 CHECKBIT(PIND, PC6)
 
 /* Encoders */
 short dirL = 0;
@@ -73,8 +39,6 @@ long countLR = 0;
 short dirR = 0;
 long countRF = 0;
 long countRR = 0;
-
-double readIR(int x);
 																
 void init(void){
 	/* Init Pins */
@@ -177,10 +141,6 @@ int main(void)
     }
 }
 
-
-
-
-
 /* Motor Control Functions */
 void setMotorSpeed(char c, int p){		// Set speed with a percentage
 	int s = 0;
@@ -214,53 +174,7 @@ void motorSTP(){
 	RM1(0);
 }
 
-/* IR Equations
- LF: cm=33097.0 * (x)^(-1.322)
- RF: cm=19799.0 * (x)^(-1.243)
- LR: cm=03440.3 * (x)^(-1.078)
- RR: cm=03790.6 * (x)^(-1.088)
- */
-
-double readIR(int x){
-    double adc_data = 0;
-    for(unsigned char i=0; i<40; i++)
-    {
-        adc_data += (double)readADC(x);
-    }
-    adc_data = adc_data/40;
-    
-    switch (x) {
-        case LF_IR:
-            return (double)(33097.0 * pow( adc_data, (double)-1.322));
-            break;
-        case RF_IR:
-            return (double)(19799.0 * pow( adc_data, (double)-1.243));
-            break;
-        case LR_IR:
-            return (double)(03440.3 * pow( adc_data, (double)-1.078));
-            break;
-        case RR_IR:
-            return (double)(03790.6 * pow( adc_data, (double)-1.088));
-            break;
-        default:
-            break;
-    }
-    return -1; // RETURN WITH ERROR
-}
-
-/* ADC Functions */
-int readADC(int channel){		// PORT A
-
-	ADMUX |= channel;			// read from specified channel
-    ADMUX |= (1 << REFS0);		// AVCC with external capacitor at AREF pin
-	ADCSRA = 0xEB;				// changed to allow interrupt
-    while(!(ADCSRA & 0x10)) asm volatile ("nop"::); //if still converting, wait
-    ADCSRA |= 0x10;				// clear flag
-		
-    return ADC;
-}
-
-/* PIMG Functions */
+/* PING Functions */ // Needs to be tested
 #define SAMPLERATE 40
 
 int ping_cm(){
