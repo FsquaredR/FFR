@@ -1,8 +1,6 @@
 #ifndef RobotIO_H
 #define RobotIO_H
 
-#define SAMPLERATE 40
-
 /* Macros For Bitsetting  */
 #define SETBIT(ADDRESS,BIT) (ADDRESS |= (1<<BIT))
 #define CLEARBIT(ADDRESS,BIT) (ADDRESS &= ~(1<<BIT))
@@ -31,9 +29,5 @@
 #define RENC1 CHECKBIT(PIND, PC7)
 #define LENC0 CHECKBIT(PIND, PC2) // gets interupt INT0
 #define LENC1 CHECKBIT(PIND, PC6)
-
-double readIR(int)
-int readADC(int)
-
 
 #endif 

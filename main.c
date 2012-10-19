@@ -26,11 +26,12 @@
 #include <math.h>
 #include <avr/interrupt.h>
 #include "RobotIO.h"
+#include "IRdata.h"
 
-#define F_CPU 8000000UL
 #define FOSC 8000000
 #define BAUD 9600
 #define MYUBRR FOSC/16/BAUD-1
+#define SAMPLERATE 40
 
 /* Encoders */
 short dirL = 0;
@@ -104,16 +105,14 @@ void USART_Init(unsigned int ubrr)
 	
 }
 
+
 int main(void)
 {
     init();
     
     USART_Init(MYUBRR);
     
-    LM0(0);
-    LM1(0);
-    RM0(0);
-    RM1(0);
+    motorSTP();
     sei();
     USART_TransmitString((char*)"Starting MIRCO\nPush Button!!\n");
     while(!PBS)
@@ -123,25 +122,15 @@ int main(void)
     USART_TransmitString((char*)"Button Pushed...\n");
     
 	while(1){
-
-        
-        // AYERS MOTOR DEMO
-        motorFWD();
-        _delay_ms(500);
-        motorSTP();
-        PORTB = 0xFF;
-        _delay_ms(2000);
-        motorRVS();
-        _delay_ms(500);
-        motorSTP();
-        while(!PBS)
-        {
+        while(!PBS){
             _delay_ms(1);
         }
+        double temp = readIR(LF_IR);
+        USART_Transmit(temp);
     }
 }
 
-/* Motor Control Functions */
+/* Motor Control Functions */ //Funky needs checking
 void setMotorSpeed(char c, int p){		// Set speed with a percentage
 	int s = 0;
 	
@@ -153,29 +142,7 @@ void setMotorSpeed(char c, int p){		// Set speed with a percentage
 	if(c == 'R') OCR1B = s;				// PORTD 4
 }
 
-void motorFWD(){				
-	LM0(1);
-	LM1(0);
-	RM0(0);
-	RM1(1);	
-}
-
-void motorRVS(){				
-	LM0(0);
-	LM1(1);
-	RM0(1);
-	RM1(0);	
-}
-
-void motorSTP(){
-	LM0(0);
-	LM1(0);
-	RM0(0);
-	RM1(0);
-}
-
 /* PING Functions */ // Needs to be tested
-#define SAMPLERATE 40
 
 int ping_cm(){
   int avg = 0;
@@ -217,22 +184,6 @@ int pulseInHighUltra(){
 	 return count;
 }
 
-/*
-ISR(INT0_vect) {
-    PORTB = 0xFF;
-    
-    //TODO: Read interrupt
-    if(LENC1){
-        PORTB = 0xFF;
-        //LED(1);
-    }else{
-        PORTB = 0x00;
-        
-        //LED(0);
-    }
-}
-
-*/
 ISR(INT0_vect){
     
     if(LENC0){
@@ -260,7 +211,7 @@ ISR(INT1_vect){
         }
     }
 }
-
+/*
 void go(int d, short dirR, short dirL){			// Assuming overall encoders get cleared ( d in increments )
 	unsigned int dismvR = 0;     // incs.
 	unsigned int dismvL = 0;
@@ -292,4 +243,71 @@ void go(int d, short dirR, short dirL){			// Assuming overall encoders get clear
 		dismvR = countRF - ENCR_p;
 		dismvL = countLF - ENCL_p;
 	}
+}*/
+/* IR Equations
+ LF: cm=33097.0 * (x)^(-1.322)
+ RF: cm=19799.0 * (x)^(-1.243)
+ LR: cm=03440.3 * (x)^(-1.078)
+ RR: cm=03790.6 * (x)^(-1.088)
+ */
+
+ // Returned value in mm
+int readIR(int x){
+    int adc_data = 0;
+    for(unsigned char i=0; i<SAMPLERATE; i++)
+    {
+        adc_data += readADC(x);
+    }
+    adc_data = adc_data/SAMPLERATE;
+    
+    switch (x) {
+        case LF_IR:
+            return table_LF_IR[adc_data];
+            break;
+        case RF_IR:
+            return table_RF_IR[adc_data];
+            break;
+        case LR_IR:
+            return table_LR_IR[adc_data];
+            break;
+        case RR_IR:
+            return table_RR_IR[adc_data];;
+            break;
+        default:
+            break;
+    }
+    return -1; // RETURN WITH ERROR
+}
+
+/* ADC Functions */
+int readADC(int channel){		// PORT A
+
+	ADMUX |= channel;			// read from specified channel
+    ADMUX |= (1 << REFS0);		// AVCC with external capacitor at AREF pin
+	ADCSRA = 0xEB;				// changed to allow interrupt
+    while(!(ADCSRA & 0x10)) asm volatile ("nop"::); //if still converting, wait
+    ADCSRA |= 0x10;				// clear flag
+		
+    return ADC;
+}
+
+void motorFWD(void){				
+	LM0(1);
+	LM1(0);
+	RM0(0);
+	RM1(1);	
+}
+
+void motorRVS(void){				
+	LM0(0);
+	LM1(1);
+	RM0(1);
+	RM1(0);	
+}
+
+void motorSTP(void){
+	LM0(0);
+	LM1(0);
+	RM0(0);
+	RM1(0);
 }
