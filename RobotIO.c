@@ -1,5 +1,3 @@
-#define SAMPLERATE 40
-
 /* IR Equations
  LF: cm=33097.0 * (x)^(-1.322)
  RF: cm=19799.0 * (x)^(-1.243)
