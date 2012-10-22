@@ -17,8 +17,8 @@
 #define LR_IR 3
 	// Fire I/O
 #define FAN(x) (x) ? SETBIT(PORTC, 4) : CLEARBIT(PORTC, 4);
-#define LED(x) (x) ? SETBIT(PORTC, 5) : CLEARBIT(PORTC, 5);
-#define PBS CHECKBIT(PINC, PC6)
+#define LED(x) (x) ? SETBIT(PORTC, 6) : CLEARBIT(PORTC, 6);
+#define PBS CHECKBIT(PINC, PC7)
 	// Motors
 #define LM0(x) (x) ? SETBIT(PORTC, 0) : CLEARBIT(PORTC, 0);		
 #define LM1(x) (x) ? SETBIT(PORTC, 1) : CLEARBIT(PORTC, 1);		 
