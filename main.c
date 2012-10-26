@@ -31,9 +31,7 @@
 #define FOSC 8000000
 #define BAUD 9600
 #define MYUBRR FOSC/16/BAUD-1
-<<<<<<< HEAD
-#define SAMPLERATE 40
-=======
+
 
 /* Macros For Bitsetting  */
 #define SETBIT(ADDRESS,BIT) (ADDRESS |= (1<<BIT))
@@ -63,7 +61,7 @@
 #define RENC1 CHECKBIT(PIND, PC7)
 #define LENC0 CHECKBIT(PIND, PC2) // gets interupt INT0
 #define LENC1 CHECKBIT(PIND, PC6)
->>>>>>> Added PWM
+
 
 /* Encoders */
 short dirL = 0;
@@ -136,8 +134,7 @@ void USART_Init(unsigned int ubrr)
 	
 }
 
-<<<<<<< HEAD
-=======
+
 void setPWM1(uint16_t c)
 {
     OCR1AH = ((0xFF00 & c) >> 0x08);
@@ -149,7 +146,7 @@ void setPWM2(uint16_t c)
     OCR1BH = (0xFF00 & c) >> 0x08;
     OCR1BL = (0x00FF & c);
 }
->>>>>>> Added PWM
+
 
 int main(void)
 {
@@ -157,10 +154,10 @@ int main(void)
     
     USART_Init(MYUBRR);
     
-<<<<<<< HEAD
+
     motorSTP();
     sei();
-=======
+
     uint16_t pwmV1 = 0xFFFF;
     uint16_t pwmV2 = 0xFFFF;
     
@@ -178,7 +175,7 @@ int main(void)
     RM0(0);
     RM1(0);
     //sei();
->>>>>>> Added PWM
+
     USART_TransmitString((char*)"Starting MIRCO\nPush Button!!\n");
     while(PBS)
     {
@@ -187,7 +184,7 @@ int main(void)
     USART_TransmitString((char*)"Button Pushed...\n");
     
 	while(1){
-<<<<<<< HEAD
+
         while(!PBS){
             _delay_ms(1);
         }
@@ -196,8 +193,8 @@ int main(void)
     }
 }
 
-/* Motor Control Functions */ //Funky needs checking
-=======
+/* Motor Control Functions  //Funky needs checking
+
         
         setPWM1((uint16_t)32000); // 16 bit: Only values 0xFFFF and 32000 make sense?
         setPWM2((uint16_t)32000); // 0xFFFF = Full Speed  :  32000 = Half-ish Speed
@@ -216,7 +213,7 @@ int main(void)
         }
 
     }
-}
+}*/ //CONFLICT??
 
 
 
@@ -235,9 +232,7 @@ void setMotorSpeed(char c, int p){		// Set speed with a percentage
 	if(c == 'R') OCR1B = s;				// PORTD 4
 } */
 
-<<<<<<< HEAD
-/* PING Functions */ // Needs to be tested
-=======
+
 void motorFWD(){				
 	LM0(0);
 	LM1(1);
@@ -307,7 +302,7 @@ int readADC(int channel){		// PORT A
 
 /* PIMG Functions */
 #define SAMPLERATE 40
->>>>>>> Added PWM
+
 
 int ping_cm(){
   int avg = 0;
@@ -376,7 +371,7 @@ ISR(INT1_vect){
         }
     }
 }
-<<<<<<< HEAD
+
 /*
 void go(int d, short dirR, short dirL){			// Assuming overall encoders get cleared ( d in increments )
 =======
@@ -482,6 +477,4 @@ void motorSTP(void){
 	RM0(0);
 	RM1(0);
 }
-=======
-}*/
->>>>>>> Added PWM
+
