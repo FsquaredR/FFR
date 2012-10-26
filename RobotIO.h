@@ -22,8 +22,8 @@
 	// Motors
 #define LM0(x) (x) ? SETBIT(PORTC, 0) : CLEARBIT(PORTC, 0);		
 #define LM1(x) (x) ? SETBIT(PORTC, 1) : CLEARBIT(PORTC, 1);		 
-#define RM0(x) (x) ? SETBIT(PORTD, 7) : CLEARBIT(PORTD, 7);
-#define RM1(x) (x) ? SETBIT(PORTD, 6) : CLEARBIT(PORTD, 6);
+#define RM0(x) (x) ? SETBIT(PORTC, 2) : CLEARBIT(PORTC, 2);
+#define RM1(x) (x) ? SETBIT(PORTC, 3) : CLEARBIT(PORTC, 3);
 	// Encoders
 #define RENC0 CHECKBIT(PIND, PC3) // gets interupt INT1
 #define RENC1 CHECKBIT(PIND, PC7)

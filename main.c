@@ -57,18 +57,22 @@ void init(void){
 	/* Init INT */
 	//EICRA |= ISC00 || ISC01;		  // Sets INT0 @Rising Edge
 	//EICRA |= ISC11 || ISC10;		  // Sets INT1 @Rising Edge
+    
     EIMSK  |= (1 << INT0);
     EICRA |= (1 << ISC00);
     EICRA |= (0 << ISC01);
 	
 	/* Init PWM */
-	TCCR1A = 0x81;                // 8-bit, Non-Inverted PWM
-    //TCCR1B = 1;                 // Starts PWM
-	
+    TCCR0A = (1<<COM0A1)|(1<<COM0B1)|(1<<WGM00)|(1<<WGM01);
+    TCCR0B = (1<<CS00);
+	OCR0A = 10;
+    OCR0B = 200;
+    
+    
 	/* Init ADC */	
-    ADCSRA = 0xEB;				// changed to allow interrupt
-    ADMUX |= (1 << REFS0);		// AVCC with external capacitor at AREF pin
-    ADCSRA |= 0x10;				// clear flag
+    //ADCSRA = 0xEB;				// changed to allow interrupt
+    //ADMUX |= (1 << REFS0);		// AVCC with external capacitor at AREF pin
+    //ADCSRA |= 0x10;				// clear flag
 }
 /*
 void USART_TransmitString(const char* str)
@@ -118,7 +122,7 @@ int main(void)
     /*
     USART_Init(MYUBRR);
     */
-    motorSTP();
+    //motorSTP();
     sei();
     /*
     USART_TransmitString((char*)"Starting MIRCO\nPush Button!!\n");
@@ -130,11 +134,15 @@ int main(void)
     */
 	while(1){
 
-        if(readIR(LR_IR) > 600){
+        /*if(readIR(LR_IR) > 600){
             LED(0);
         }else{
             LED(1);
-        }
+        }*/
+        _delay_ms(500);
+        LED(0);
+        _delay_ms(500);
+        LED(1);
     }
 }
 
@@ -296,7 +304,7 @@ int readADC(int channel){		// PORT A
 		
     return ADC;
 }
-/*
+
 void motorFWD(void){				
 	LM0(1);
 	LM1(0);
@@ -310,7 +318,7 @@ void motorRVS(void){
 	LM1(1);
 	RM0(1);
 	RM1(0);	
-}*/
+}
 
 void motorSTP(){
 	LM0(0);
