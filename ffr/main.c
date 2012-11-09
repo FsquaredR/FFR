@@ -26,7 +26,7 @@
 #include <math.h>
 #include <avr/interrupt.h>
 #include "RobotIO.h"
-//#include "IRdata.h"
+#include "IRdata.h"
 
 #define FOSC 8000000
 #define BAUD 9600
@@ -45,48 +45,36 @@ long countRR = 0;
 void motorSTP(void);
 long readIR(int);
 int readADC(int);
-int readADC2(int);
-unsigned char USART_Receive(void);
-void USART_TransmitString(const char* str);
-void USART_Transmit(unsigned char data);
-void USART_Init(unsigned int ubrr);
-
-volatile uint16_t adc_value;
-volatile uint8_t  bool_adc_done;
-volatile uint8_t  bool_led;
 
 																
 void init(void){
 	/* Init Pins */
-	DDRA = 0x00;		// PORTA 0-3 -input (IR Inputs)
-	DDRC = 0x7F;		// PORTC 0-3 -output (Motor Outputs) 7 (PING) -output
-	DDRD = 0x32;		// PORTD 0,1 -output(serial) 2,3,6,7 -input (Encoder) 4[R]5[L]-output (PWM)
+	DDRA = 0x00;				// PORTA 0-3 -input (IR Inputs)
+	DDRC = 0x7F;				// PORTC 0-3 -output (Motor Outputs) 7 (PING) -output
+	DDRD = 0x32;				// PORTD 0,1 -output(serial) 2,3,6,7 -input (Encoder) 4[R]5[L]-output (PWM)
     DDRB = 0xFF;
 	
 	/* Init INT */
-    EIMSK  = (1 << INT0)  | (1 << INT1);
-    EICRA |= (1 << ISC00) | (1 << ISC01);
-    EICRA |= (1 << ISC10) | (1 << ISC11);
+	//EICRA |= ISC00 || ISC01;		  // Sets INT0 @Rising Edge
+	//EICRA |= ISC11 || ISC10;		  // Sets INT1 @Rising Edge
+    
+    EIMSK  |= (1 << INT0);
+    EICRA |= (1 << ISC00);
+    EICRA |= (0 << ISC01);
 	
 	/* Init PWM */
     TCCR0A = (1<<COM0A1)|(1<<COM0B1)|(1<<WGM00)|(1<<WGM01);
     TCCR0B = (1<<CS00);
 	OCR0A = 10;
-    OCR0B = 10;
+    OCR0B = 200;
     
-    /* Init ADC */
-    ADCSRA |= (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0); // Set ADC prescaler to 128 - 125KHz sample rate @ 16MHz 
-   	ADMUX  |= (1 << REFS0); // Set ADC reference to AVCC 
-   	ADCSRA |= (1 << ADEN);  // Enable ADC 
-   	ADCSRA |= (1 << ADIE);  // Enable ADC Interrupt/**/
-
-   	/* Init timer1 */
-   	TIMSK1 |= (1 << TOIE1); // Enable overflow interrupt 
-	TCNT1 = 49911; // Preload timer with precalculated value 
-	TCCR1B |= ((1 << CS10) | (1 << CS11)); // Set up timer at Fcpu/64 
-	bool_led = 1;
+    
+	/* Init ADC */	
+    //ADCSRA = 0xEB;				// changed to allow interrupt
+    //ADMUX |= (1 << REFS0);		// AVCC with external capacitor at AREF pin
+    //ADCSRA |= 0x10;				// clear flag
 }
-
+/*
 void USART_TransmitString(const char* str)
 {
 	for (;*str;str++)
@@ -126,37 +114,35 @@ void USART_Init(unsigned int ubrr)
 	UCSR0C = (3<<1);
 	
 }
-
+*/
 
 int main(void)
 {
     init();
-    
+    /*
     USART_Init(MYUBRR);
-
+    */
+    //motorSTP();
     sei();
-    LED(0);
-    USART_TransmitString((char*)"Micro Started: Push Button\n");
-    while(PBS)
+    /*
+    USART_TransmitString((char*)"Starting MIRCO\nPush Button!!\n");
+    while(!PBS)
     {
         _delay_ms(1);
     }
-    LED(1);
-    USART_TransmitString((char*)"Button Pushed\n");
-    uint8_t i = 0;
-    char buffer[10];
+    USART_TransmitString((char*)"Button Pushed...\n");
+    */
 	while(1){
-		memset(buffer,0,10);
-		itoa(readADC(0), buffer, 10);
-		OCR0A = 10;
-		OCR0B = 10;
 
-		USART_TransmitString(buffer);
-		/*if ((readADC(0) > 300)||(readADC(1) > 300)||(readADC(2) > 300)||(readADC(3) > 300)) {
-			motorFWD();
-		} else {
-			motorSTP();
-		}*/
+        /*if(readIR(LR_IR) > 600){
+            LED(0);
+        }else{
+            LED(1);
+        }*/
+        _delay_ms(500);
+        LED(0);
+        _delay_ms(500);
+        LED(1);
     }
 }
 
@@ -239,26 +225,6 @@ ISR(INT1_vect){
         }
     }
 }
-ISR(ADC_vect) 
-{ 
-	adc_value = ADC;
-	ADCSRA &= ~(1<<ADSC); // TURN OFF ADC
-	ADCSRA &= ~(1<<ADIE);
-	bool_adc_done = 1;
-} 
-
-ISR(TIMER1_OVF_vect) { 
-	if(bool_led) {
-		LED(1);
-		bool_led = 0;
-	} else {
-		LED(0);
-		bool_led = 1;
-	}
-
-   
-   TCNT1  = 49911; // Reload timer with precalculated value 
-}
 /*
 void go(int d, short dirR, short dirL){			// Assuming overall encoders get cleared ( d in increments )
 	unsigned int dismvR = 0;     // incs.
@@ -300,7 +266,7 @@ void go(int d, short dirR, short dirL){			// Assuming overall encoders get clear
  */
 
  // Returned value in (10^-4)m
-/*long readIR(int x){
+long readIR(int x){
     int adc_data = 0;
     for(unsigned char i=0; i<SAMPLERATE; i++)
     {
@@ -325,24 +291,17 @@ void go(int d, short dirR, short dirL){			// Assuming overall encoders get clear
             break;
     }
     return -1; // RETURN WITH ERROR
-}/**/
+}
 
 /* ADC Functions */
 int readADC(int channel){		// PORT A
-	bool_adc_done = 0;
-	ADMUX  &= 0xE0;
-	ADMUX  |= channel;
-	ADCSRA |= (1 << ADIE);
-	ADCSRA |= (1 << ADSC);
-	while(bool_adc_done==0) asm("nop"); //Block till conversion's done
-	return adc_value;
-}
 
-int readADC2(int channel){		// PORT A
-    ADMUX |= channel;			// read from specified channel
-    ADMUX |= (1 << REFS1);		// DIV: 1.1v
+	ADMUX |= channel;			// read from specified channel
+    ADMUX |= (1 << REFS0);		// AVCC with external capacitor at AREF pin
+	ADCSRA = 0xEB;				// changed to allow interrupt
     while(!(ADCSRA & 0x10)) asm volatile ("nop"::); //if still converting, wait
     ADCSRA |= 0x10;				// clear flag
+		
     return ADC;
 }
 
