@@ -22,6 +22,7 @@
 
 #include <avr/io.h>
 #include <util/delay.h>
+#include <util/atomic.h>
 #include <string.h>
 #include <math.h>
 #include <avr/interrupt.h>
@@ -31,21 +32,26 @@
 #define FOSC 8000000
 #define BAUD 9600
 #define MYUBRR FOSC/16/BAUD-1
-#define SAMPLERATE 40
+#define SAMPLERATE 10
 
-/* Encoders */
-short dirL = 0;
-long countLF = 0;
-long countLR = 0;
-short dirR = 0;
-long countRF = 0;
-long countRR = 0;
+/* Encoder Varriables*/
+short leftDirection = 0;	//1 = forward : -1 = Reverse
+int count_LeftFWD = 0;
+int count_LeftRVS = 0;
+short rightDirection = 0;	//1 = forward : -1 = Reverse
+int count_RightFWD = 0;
+int count_RightRVS = 0;
 
-/* PROTOTYPES */
+/* Prototypes*/
 void motorSTP(void);
+
+int ping_cm(void);
+long pingRead(void);
+
 long readIR(int);
 int readADC(int);
-int readADC2(int);
+
+
 unsigned char USART_Receive(void);
 void USART_TransmitString(const char* str);
 void USART_Transmit(unsigned char data);
@@ -86,47 +92,6 @@ void init(void){
 	TCCR1B |= ((1 << CS10) | (1 << CS11)); // Set up timer at Fcpu/64 
 	bool_led = 1;
 }
-
-void USART_TransmitString(const char* str)
-{
-	for (;*str;str++)
-	{
-		USART_Transmit(*str);
-	}
-	
-}
-
-unsigned char USART_Receive(void)
-{
-	while(!(UCSR0A & (1<<RXC0)));
-	return UDR0;
-}
-
-void USART_Transmit(unsigned char data)
-{
-    
-	//WAIT FOR EMPTY BUFFER
-	while (!(UCSR0A & (1<<UDRE0)));
-	
-	//Put data on buffer
-	UDR0 = data;
-    
-}
-
-void USART_Init(unsigned int ubrr)
-{
-	//SET BAUD RATE
-	UBRR0H = (unsigned char) (ubrr>>8);
-	UBRR0L = (unsigned char) ubrr;
-	
-	//ENABLE REC - TRA
-	UCSR0B = (1<<RXEN0) | (1<<TXEN0);
-	
-	//SET Frame Format
-	UCSR0C = (3<<1);
-	
-}
-
 
 int main(void)
 {
@@ -172,57 +137,61 @@ void setMotorSpeed(char c, int p){		// Set speed with a percentage
 	if(c == 'R') OCR1B = s;				// PORTD 4
 }
 
-/* PING Functions */ // Needs to be tested
-/*
+/*----------PING Sensor-----------*/
 int ping_cm(){
-  int avg = 0;
-  int sum = 0;
+   long avg = 0;
+   long sum = 0;
   
-  for(int i = 0; i < (SAMPLERATE/2); i++){
-    sum += pingRead();
-    _delay_ms(5);	
+  for(int i = 0; i < (SAMPLERATE); i++){
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
+		sum += pingRead();
+		_delay_ms(1);	
+	}    
   }
-  avg = (sum/(SAMPLERATE/2));
-  
-  return (avg /29 /2);		// Needed to be recalabrated... maybe... probably not though
+  avg = (sum/(SAMPLERATE));
+
+  return (avg /29 /2);		// Needed to be recalibrated... maybe... probably not though
 }
 
-int pingRead(){
-  int onTime = 0;
-  
-  FLIPBIT(PORTC,8);             
-  ULTRAW(0);				    // Pulse The Ping Sensor 
-  _delay_us(2);
-  ULTRAW(1);
-  _delay_us(5);
-  ULTRAW(0);
-  FLIPBIT(PORTC,8);
-  
-  onTime = pulseInHighUltra();	// Collect Data 
-  
-  return onTime;  
-}
+ long pingRead(){	
+	long count = 0;
 
-int pulseInHighUltra(){
-	int count = 0;
-	
-	while(ULTRAR){ 					//Pulse is high
+	ULTRA_OUT;             
+	ULTRA_WRITE(0);				    // Pulse The Ping Sensor 
+	_delay_us(2);
+	ULTRA_WRITE(1);
+	_delay_us(5);
+	ULTRA_WRITE(0);
+	ULTRA_IN;
+
+	while(!ULTRA_READ){}
+	while(ULTRA_READ){
 		count++;
 		_delay_us(1);
 	}
-	
-	 return count;
+	return count;  
 }
-*/
+
+/*----------------ADC Functions-------------*/
+int readADC(int channel){		// PORT A
+	bool_adc_done = 0;
+	ADMUX  &= 0xE0;
+	ADMUX  |= channel;
+	ADCSRA |= (1 << ADIE);
+	ADCSRA |= (1 << ADSC);
+	while(bool_adc_done==0) asm("nop"); //Block till conversion's done
+	return adc_value;
+}
+
+/*----------Interrupts------------*/
 ISR(INT0_vect){
-    
     if(LENC0){
-        if(!LENC1){          //Checks other right encoder
-            dirL = 1;
-            countLF++;
+        if(LENC1){          //Checks other right encoder
+            leftDirection = 1;
+            count_LeftFWD++;
         }else{
-            dirL = -1;
-            countLR++;
+            leftDirection = -1;
+            count_LeftRVS++;
         }
     }
     
@@ -231,23 +200,23 @@ ISR(INT0_vect){
 ISR(INT1_vect){
     if(RENC0){
         if(!RENC1){          //Checks other right encoder
-            dirR = 1;
-            countRF++;
+            rightDirection = 1;
+            count_RightFWD++;
         }else{
-            dirR = -1;
-            countRR++;
+            rightDirection = -1;
+            count_RightRVS++;
         }
     }
 }
-ISR(ADC_vect) 
-{ 
+
+ISR(ADC_vect){ 
 	adc_value = ADC;
 	ADCSRA &= ~(1<<ADSC); // TURN OFF ADC
 	ADCSRA &= ~(1<<ADIE);
 	bool_adc_done = 1;
 } 
 
-ISR(TIMER1_OVF_vect) { 
+ISR(TIMER1_OVF_vect){ 
 	if(bool_led) {
 		LED(1);
 		bool_led = 0;
@@ -255,9 +224,71 @@ ISR(TIMER1_OVF_vect) {
 		LED(0);
 		bool_led = 1;
 	}
-
-   
    TCNT1  = 49911; // Reload timer with precalculated value 
+}
+
+/*----------Serial Comm------------*/
+void USART_TransmitString(const char* str)
+{
+	for (;*str;str++)
+	{
+		USART_Transmit(*str);
+	}
+	
+}
+
+unsigned char USART_Receive(void)
+{
+	while(!(UCSR0A & (1<<RXC0)));
+	return UDR0;
+}
+
+void USART_Transmit(unsigned char data)
+{
+    
+	//WAIT FOR EMPTY BUFFER
+	while (!(UCSR0A & (1<<UDRE0)));
+	
+	//Put data on buffer
+	UDR0 = data;
+    
+}
+
+void USART_Init(unsigned int ubrr)
+{
+	//SET BAUD RATE
+	UBRR0H = (unsigned char) (ubrr>>8);
+	UBRR0L = (unsigned char) ubrr;
+	
+	//ENABLE REC - TRA
+	UCSR0B = (1<<RXEN0) | (1<<TXEN0);
+	
+	//SET Frame Format
+	UCSR0C = (3<<1);
+	
+}
+
+/*----------Motor Control------------*/
+void motorFWD(void){				
+	LM0(1);
+	LM1(0);
+	LM1(0);
+	RM0(0);
+	RM1(1);	
+}
+
+void motorRVS(void){				
+	LM0(0);
+	LM1(1);
+	RM0(1);
+	RM1(0);	
+}
+
+void motorSTP(){
+	LM0(0);
+	LM1(0);
+	RM0(0);
+	RM1(0);
 }
 /*
 void go(int d, short dirR, short dirL){			// Assuming overall encoders get cleared ( d in increments )
@@ -326,44 +357,3 @@ void go(int d, short dirR, short dirL){			// Assuming overall encoders get clear
     }
     return -1; // RETURN WITH ERROR
 }/**/
-
-/* ADC Functions */
-int readADC(int channel){		// PORT A
-	bool_adc_done = 0;
-	ADMUX  &= 0xE0;
-	ADMUX  |= channel;
-	ADCSRA |= (1 << ADIE);
-	ADCSRA |= (1 << ADSC);
-	while(bool_adc_done==0) asm("nop"); //Block till conversion's done
-	return adc_value;
-}
-
-int readADC2(int channel){		// PORT A
-    ADMUX |= channel;			// read from specified channel
-    ADMUX |= (1 << REFS1);		// DIV: 1.1v
-    while(!(ADCSRA & 0x10)) asm volatile ("nop"::); //if still converting, wait
-    ADCSRA |= 0x10;				// clear flag
-    return ADC;
-}
-
-void motorFWD(void){				
-	LM0(1);
-	LM1(0);
-	LM1(0);
-	RM0(0);
-	RM1(1);	
-}
-
-void motorRVS(void){				
-	LM0(0);
-	LM1(1);
-	RM0(1);
-	RM1(0);	
-}
-
-void motorSTP(){
-	LM0(0);
-	LM1(0);
-	RM0(0);
-	RM1(0);
-}

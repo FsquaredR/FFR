@@ -9,8 +9,10 @@
 
 /* Pin Declairations */
 	// Sensors
-#define ULTRAW(x) (x) ? SETBIT(PORTC, 7) : CLEARBIT(PORTC, 7);
-#define ULTRAR CHECKBIT(PINC, PC7)
+#define ULTRA_WRITE(x) (x) ? SETBIT(PORTC, 5) : CLEARBIT(PORTC, 5);
+#define ULTRA_IN CLEARBIT(DDRC, 5)
+#define ULTRA_OUT SETBIT(DDRC, 5)
+#define ULTRA_READ CHECKBIT(PINC, PC5)
 #define RF_IR 0
 #define RR_IR 1
 #define LF_IR 2
